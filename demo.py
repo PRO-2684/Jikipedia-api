@@ -17,12 +17,20 @@ entry = entries[0]
 entry.query()
 print(entry)
 
+# 查找用户杂谈
+miscs = user.fetch_miscs(5)
+for misc in miscs:
+    print(repr(misc))
+misc = miscs[0]
+misc.query()
+print(misc)
+
 # 指定用户 id
 user = User(824221130)
 user.query()
 print(user)
 
 # 指定词条 id
-entry = Entry(733278302)
+entry = Entry(198762384)
 entry.query()
 print(entry)

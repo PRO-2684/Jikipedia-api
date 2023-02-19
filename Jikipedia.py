@@ -146,9 +146,7 @@ class User:
         self.entry_likes = data["definition"]["like"]
         self.raw_data = data
 
-    def fetch_entries(
-        self, max_page: int = MAX_PAGE, start: int = 1
-    ) -> list[Entry]:
+    def fetch_entries(self, max_page: int = MAX_PAGE, start: int = 1) -> list[Entry]:
         """查询用户词条"""
         i = start
         res = []
@@ -191,11 +189,54 @@ class User:
             i += 1
         return res
 
+    def fetch_miscs(self, max_page: int = MAX_PAGE, start: int = 1) -> list[Misc]:
+        """查询用户杂谈"""
+        i = start
+        res = []
+        while True:
+            r = x.post(
+                "https://api.jikipedia.com/go/request_created_definition",
+                json={
+                    "author_id": self.user_id,
+                    "page": i,
+                    "mode": "full",
+                    "filter": "normal",
+                    "sort_by": "hot",
+                    "category": "post",
+                    "include_anonymous": False,
+                },
+            )
+            data = r.json()
+            if LOG:
+                print(f"[Fetch miscs] Searching page #{data['current_page']}...")
+            for misc_info in data["data"]:
+                res.append(
+                    Misc(
+                        misc_info["id"],
+                        misc_info["plaintext"],
+                        User(
+                            misc_info["author"]["id"],
+                            misc_info["author"]["name"],
+                            misc_info["author"]["description"],
+                        ),
+                    )
+                )
+            if i >= data["last_page"]:
+                if LOG:
+                    print("[Fetch miscs] No more results.")
+                break
+            if i >= max_page:
+                if LOG:
+                    print("[Fetch miscs] Max pages limit reached!")
+                break
+            i += 1
+        return res
+
 
 class Entry:
     """词条"""
 
-    def __init__(self, entry_id: int, title: str = None, author=None) -> None:
+    def __init__(self, entry_id: int, title: str = None, author: User = None) -> None:
         """根据给定词条 id 实例化一个词条"""
         self.entry_id = entry_id
         """词条 id"""
@@ -213,19 +254,29 @@ class Entry:
         self.tags = []
         """词条标签"""
         # self.linked = []
+        # self.references
+        # self.videos
         self.author = author
         """磁珠"""
         self.likes = None
         """点赞数"""
         self.dislikes = None
         """点踩数"""
+        self.shares = None
+        """分享数"""
+        self.views = None
+        """查看数"""
+        self.comments = None
+        """评论数"""
         self.anonymous = None
         """匿名发表"""
+        self.images = []
+        '''词条图片'''
         self.raw_data = None
         """原始 json 数据"""
 
     def __str__(self) -> str:
-        res = f"Title: {self.title}\n  Created: {self.created}\n  Updated: {self.updated}\n  Tags: {self.tags}\n  Author: {self.author.user_name}\n  Likes: {self.likes}\n  Dislikes: {self.dislikes}\n  Content:\n{self.content}"
+        res = f"Entry id: {self.entry_id}\n  Title: {self.title}\n  Created: {self.created}\n  Updated: {self.updated}\n  Author: {self.author.user_name}\n  Statistics: {self.likes} likes, {self.dislikes} dislikes, {self.shares} shares, {self.views} views, {self.comments} comments\n  Tags: {self.tags}\n  Images: {self.images}\n  Content:\n{self.content}"
         return res
 
     def __repr__(self) -> str:
@@ -238,6 +289,8 @@ class Entry:
             json={"id": self.entry_id},
         )
         data = r.json()
+        if data["category"] != "normal":
+            raise RuntimeError("Error: " + data["category"])
         assert self.entry_id == data["id"]
         self.created = data["created_at"]
         self.updated = data["updated_at"]
@@ -252,5 +305,84 @@ class Entry:
         )
         self.likes = data["like_count"]
         self.dislikes = data["dislike_count"]
+        self.shares = data["share_count"]
+        self.views = data["view_count"]
+        self.comments = data["comment_count"]
         self.anonymous = data["anonymous"]
+        self.images = [image["full"]["path"] for image in data["images"]]
         self.raw_data = data
+
+
+class Misc:
+    """杂谈"""
+
+    def __init__(
+        self, misc_id: int, text: str = None, author: User = None
+    ) -> None:
+        """根据给定杂谈 id 实例化一个杂谈"""
+        self.misc_id = misc_id
+        """杂谈 id"""
+        self.created = None
+        """创建时间"""
+        self.updated = None
+        """更新时间"""
+        self.content = None
+        """杂谈描述"""
+        self.text = text
+        '''杂谈纯文本'''
+        self.tags = []
+        '''标签'''
+        self.author = author
+        """杂谈作者"""
+        self.likes = None
+        """点赞数"""
+        self.dislikes = None
+        """点踩数"""
+        self.shares = None
+        """分享数"""
+        self.views = None
+        """查看数"""
+        self.comments = None
+        """评论数"""
+        self.anonymous = None
+        """匿名发表"""
+        self.images = []
+        """杂谈图片"""
+        self.raw_data = None
+        """原始 json 数据"""
+
+    def __str__(self) -> str:
+        res = f"Misc id: {self.misc_id}\n  Created: {self.created}\n  Updated: {self.updated}\n  Author: {self.author.user_name}\n  Statistics: {self.likes} likes, {self.dislikes} dislikes, {self.shares} shares, {self.views} views, {self.comments} comments\n  Tags: {self.tags}\n  Images: {self.images}\n  Content:\n{self.content}"
+        return res
+
+    def __repr__(self) -> str:
+        raw_text = self.text.replace("\n", "\\n")
+        return f'Misc(misc_id={self.misc_id}, text="{raw_text}", author="{self.author.user_name}")'
+
+    def query(self) -> None:
+        '''查询杂谈详细信息'''
+        r = x.post(
+            "https://api.jikipedia.com/go/request_definition",
+            json={"id": self.misc_id},
+        )
+        data = r.json()
+        if data["category"] != "post":
+            raise RuntimeError("Error: " + data["category"])
+        assert self.misc_id == data["id"]
+        self.created = data["created_at"]
+        self.updated = data["updated_at"]
+        self.content = data["content"]
+        self.text = data["plaintext"]
+        self.tags = [tag["name"] for tag in data["tags"]]
+        self.author = User(
+            data["author"]["id"], data["author"]["name"], data["author"]["description"]
+        )
+        self.likes = data["like_count"]
+        self.dislikes = data["dislike_count"]
+        self.shares = data["share_count"]
+        self.views = data["view_count"]
+        self.comments = data["comment_count"]
+        self.anonymous = data["anonymous"]
+        self.images = [image["full"]["path"] for image in data["images"]]
+        self.raw_data = data
+
