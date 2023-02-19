@@ -147,7 +147,7 @@ class User:
         self.raw_data = data
 
     def fetch_entries(
-        self, include_anonymous: bool = False, max_page: int = MAX_PAGE, start: int = 1
+        self, max_page: int = MAX_PAGE, start: int = 1
     ) -> list[Entry]:
         """查询用户词条"""
         i = start
@@ -162,7 +162,7 @@ class User:
                     "filter": "normal",
                     "sort_by": "hot",
                     "category": "normal",
-                    "include_anonymous": include_anonymous,
+                    "include_anonymous": False,
                 },
             )
             data = r.json()

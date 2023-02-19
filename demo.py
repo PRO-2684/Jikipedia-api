@@ -10,7 +10,7 @@ user.query()
 print(user)
 
 # 查找用户词条
-entries = user.fetch_entries(include_anonymous=True)
+entries = user.fetch_entries()
 for entry in entries:
     print(repr(entry))
 entry = entries[0]
