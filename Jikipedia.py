@@ -1,12 +1,13 @@
 from __future__ import annotations
 from requests import Session
-
-# from random import random
-# from base64 import encodebytes
+from random import random
+from time import sleep
 
 
 MAX_PAGE = 5
 LOG = False
+MULTIPLIER = 5
+SAVE_JSON = False  # 是否保存原始 json 数据
 
 
 """ 失效
@@ -128,7 +129,7 @@ class User:
             json={"user_id": self.user_id},
         )
         data = r.json()
-        assert data["id"] == self.user_id, "Unexpected error: ID mismatch!"
+        assert data["id"] == self.user_id, f"Unexpected error: ID mismatch! {data}"
         self.user_name = data["name"]
         self.description = data["description"]
         self.avatar = data["avatar_detail"]["path"]
@@ -146,7 +147,9 @@ class User:
         self.entry_likes = data["definition"]["like"]
         self.raw_data = data
 
-    def fetch_entries(self, max_page: int = MAX_PAGE, start: int = 1) -> list[Entry]:
+    def fetch_entries(
+        self, max_page: int = MAX_PAGE, start: int = 1, full: bool = False
+    ) -> list[Entry]:
         """查询用户词条"""
         i = start
         res = []
@@ -167,17 +170,32 @@ class User:
             if LOG:
                 print(f"[Fetch entries] Searching page #{data['current_page']}...")
             for entry_info in data["data"]:
-                res.append(
-                    Entry(
-                        entry_info["id"],
-                        entry_info["term"]["title"],
-                        User(
-                            entry_info["author"]["id"],
-                            entry_info["author"]["name"],
-                            entry_info["author"]["description"],
-                        ),
-                    )
+                entry = Entry(
+                    entry_info["id"],
+                    entry_info["term"]["title"],
+                    User(
+                        entry_info["author"]["id"],
+                        entry_info["author"]["name"],
+                        entry_info["author"]["description"],
+                    ),
                 )
+                if full:
+                    entry.created = entry_info["created_at"]
+                    entry.updated = entry_info["updated_at"]
+                    entry.content = entry_info["content"]
+                    entry.text = entry_info["plaintext"]
+                    entry.tags = [tag["name"] for tag in entry_info["tags"]]
+                    entry.likes = entry_info["like_count"]
+                    entry.dislikes = entry_info["dislike_count"]
+                    entry.shares = entry_info["share_count"]
+                    entry.views = entry_info["view_count"]
+                    entry.comments = entry_info["comment_count"]
+                    entry.anonymous = entry_info["anonymous"]
+                    entry.images = [
+                        image["full"]["path"] for image in entry_info["images"]
+                    ]
+                    entry.raw_data = entry_info
+                res.append(entry)
             if i >= data["last_page"]:
                 if LOG:
                     print("[Fetch entries] No more results.")
@@ -187,9 +205,14 @@ class User:
                     print("[Fetch entries] Max pages limit reached!")
                 break
             i += 1
+            t = random() * MULTIPLIER
+            print(f"暂停 {int(t)}s", end="\r")
+            sleep(t)
         return res
 
-    def fetch_miscs(self, max_page: int = MAX_PAGE, start: int = 1) -> list[Misc]:
+    def fetch_miscs(
+        self, max_page: int = MAX_PAGE, start: int = 1, full: bool = False
+    ) -> list[Misc]:
         """查询用户杂谈"""
         i = start
         res = []
@@ -210,17 +233,31 @@ class User:
             if LOG:
                 print(f"[Fetch miscs] Searching page #{data['current_page']}...")
             for misc_info in data["data"]:
-                res.append(
-                    Misc(
-                        misc_info["id"],
-                        misc_info["plaintext"],
-                        User(
-                            misc_info["author"]["id"],
-                            misc_info["author"]["name"],
-                            misc_info["author"]["description"],
-                        ),
-                    )
+                misc = Misc(
+                    misc_info["id"],
+                    misc_info["plaintext"],
+                    User(
+                        misc_info["author"]["id"],
+                        misc_info["author"]["name"],
+                        misc_info["author"]["description"],
+                    ),
                 )
+                if full:
+                    misc.created = misc_info["created_at"]
+                    misc.updated = misc_info["updated_at"]
+                    misc.content = misc_info["content"]
+                    misc.tags = [tag["name"] for tag in misc_info["tags"]]
+                    misc.likes = misc_info["like_count"]
+                    misc.dislikes = misc_info["dislike_count"]
+                    misc.shares = misc_info["share_count"]
+                    misc.views = misc_info["view_count"]
+                    misc.comments = misc_info["comment_count"]
+                    misc.anonymous = misc_info["anonymous"]
+                    misc.images = [
+                        image["full"]["path"] for image in misc_info["images"]
+                    ]
+                    misc.raw_data = misc_info
+                res.append(misc)
             if i >= data["last_page"]:
                 if LOG:
                     print("[Fetch miscs] No more results.")
@@ -230,6 +267,9 @@ class User:
                     print("[Fetch miscs] Max pages limit reached!")
                 break
             i += 1
+            t = random() * MULTIPLIER
+            print(f"暂停 {int(t)}s", end="\r")
+            sleep(t)
         return res
 
 
@@ -271,7 +311,7 @@ class Entry:
         self.anonymous = None
         """匿名发表"""
         self.images = []
-        '''词条图片'''
+        """词条图片"""
         self.raw_data = None
         """原始 json 数据"""
 
@@ -316,9 +356,7 @@ class Entry:
 class Misc:
     """杂谈"""
 
-    def __init__(
-        self, misc_id: int, text: str = None, author: User = None
-    ) -> None:
+    def __init__(self, misc_id: int, text: str = None, author: User = None) -> None:
         """根据给定杂谈 id 实例化一个杂谈"""
         self.misc_id = misc_id
         """杂谈 id"""
@@ -329,9 +367,9 @@ class Misc:
         self.content = None
         """杂谈描述"""
         self.text = text
-        '''杂谈纯文本'''
+        """杂谈纯文本"""
         self.tags = []
-        '''标签'''
+        """标签"""
         self.author = author
         """杂谈作者"""
         self.likes = None
@@ -360,7 +398,7 @@ class Misc:
         return f'Misc(misc_id={self.misc_id}, text="{raw_text}", author="{self.author.user_name}")'
 
     def query(self) -> None:
-        '''查询杂谈详细信息'''
+        """查询杂谈详细信息"""
         r = x.post(
             "https://api.jikipedia.com/go/request_definition",
             json={"id": self.misc_id},
@@ -386,3 +424,107 @@ class Misc:
         self.images = [image["full"]["path"] for image in data["images"]]
         self.raw_data = data
 
+
+if __name__ == "__main__":
+    from os import mkdir
+    from os.path import exists
+    from json import dump
+
+    def get_input(min_=1, max_=2) -> int:
+        while True:
+            s = input("> ")
+            try:
+                option = int(s)
+            except:
+                print("请输入十进制阿拉伯数字！")
+            else:
+                if min_ <= option <= max_:
+                    print(f"你选择了项目 {option}")
+                    return option
+                else:
+                    print(f"请输入大于等于 {min_} 小于等于 {max_} 的数字！")
+
+    print("小鸡词典词条/杂谈备份工具 v1")
+    while True:
+        # 确定用户 id
+        print("请选择一项: ")
+        print("1. 我知道 id / 个人主页链接 (“APP - 我的 - 我的主页 - 右上角 - 分享 - 复制链接”)")
+        print("2. 我只知道用户名")
+        print("3. 我什么都不知道")
+        option = get_input(1, 3)
+        if option == 3:
+            print("那我也无能为力了 :(")
+            exit(0)
+        elif option == 2:
+            # TODO
+            print("此项暂未完成")
+            exit(0)
+            username = input("请输入用户名: ")
+            user_id = 0
+        else:
+            user_id = int(input("请输入你的 id（分享链接内位于“/user/”和“?”间的数字）: "))
+
+        # 二次确认
+        user = User(user_id=user_id)
+        user.query()
+        print("你是否想要备份以下用户的词条与杂谈: ")
+        print(user)
+        print("1. 是")
+        print("2. 否")
+        option = get_input()
+        if option == 2:
+            print("重新选择用户...")
+            continue
+
+        # TODO: 是否保存图片
+        # print("你是否想要保存词条和杂谈的附加图片？")
+        # print("1. 是")
+        # print("2. 否")
+        # option = get_input()
+        # if option == 1:
+        #     save_pic = True
+        # else:
+        #     save_pic = False
+
+        # 备份词条
+        print("正在备份词条...")
+        dir_name = f"entries_{user.user_id}"
+        if exists(dir_name):
+            print("备份目录已存在，按下回车以继续（覆盖原文件），Ctrl+C 以取消")
+            input()
+        else:
+            mkdir(dir_name)
+        entries = user.fetch_entries(full=True)
+        for entry in entries:
+            print(f"备份《{entry.title}》...")
+            with open(f"{dir_name}/{entry.entry_id}.txt", "w") as f:
+                f.write(str(entry))
+            if SAVE_JSON:
+                with open(f"{dir_name}/{entry.entry_id}_raw.json", "w") as f:
+                    raw = entry.raw_data
+                    dump(raw, f)
+
+        # 备份杂谈
+        print("正在备份杂谈...")
+        dir_name = f"miscs_{user.user_id}"
+        if exists(dir_name):
+            print("备份目录已存在，按下回车以继续（覆盖原文件），Ctrl+C 以取消")
+            input()
+        else:
+            mkdir(dir_name)
+        miscs = user.fetch_miscs(full=True)
+        for misc in miscs:
+            print(f"备份 #{misc.misc_id}...")
+            with open(f"{dir_name}/{misc.misc_id}.txt", "w") as f:
+                f.write(str(misc))
+            if SAVE_JSON:
+                with open(f"{dir_name}/{misc.misc_id}_raw.json", "w") as f:
+                    raw = misc.raw_data
+                    dump(raw, f)
+
+        print("请选择一项: ")
+        print("1. 退出")
+        print("2. 继续备份其它用户的词条")
+        option = get_input()
+        if option == 1:
+            break
