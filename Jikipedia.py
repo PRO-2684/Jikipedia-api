@@ -444,7 +444,7 @@ if __name__ == "__main__":
                 else:
                     print(f"请输入大于等于 {min_} 小于等于 {max_} 的数字！")
 
-    print("小鸡词典词条/杂谈备份工具 v1")
+    print("小鸡词典词条/杂谈备份工具 v1.1")
     while True:
         # 确定用户 id
         print("请选择一项: ")
@@ -456,11 +456,12 @@ if __name__ == "__main__":
             print("那我也无能为力了 :(")
             exit(0)
         elif option == 2:
-            # TODO
-            print("此项暂未完成")
-            exit(0)
+            # 搜索用户
             username = input("请输入用户名: ")
-            user_id = 0
+            users = find_user(username, 3)
+            for user in users:
+                print(f"ID: {user.user_id}\t 用户名: {user.user_name} 简介: {user.description}")
+            user_id = int(input("请输入你的 id: "))
         else:
             user_id = int(input("请输入你的 id（分享链接内位于“/user/”和“?”间的数字）: "))
 
@@ -528,3 +529,5 @@ if __name__ == "__main__":
         option = get_input()
         if option == 1:
             break
+
+    input("按回车键以退出...")
