@@ -1,4 +1,7 @@
 # Jikipedia-api
+
+![GitHub all releases](https://img.shields.io/github/downloads/PRO-2684/Jikipedia-api/total)
+
 小鸡词典仍然可以使用的一些 api 以及自动备份工具
 
 ## 备份方法
