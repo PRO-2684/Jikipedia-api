@@ -11,4 +11,4 @@
 
 ### 没有 Python 环境
 
-从 [release]() 里下载最新的 exe 即可。
+从 [release](https://github.com/PRO-2684/Jikipedia-api/releases/latest) 里下载最新的 exe 即可。
